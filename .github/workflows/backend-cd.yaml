@@ -80,8 +80,8 @@ jobs:
           IMAGE_TAG: latest
           REPO_NAME: backend
         run: |
-          docker build --build-arg=REACT_APP_MOVIE_API_URL=http://localhost:5000 --tag 959209905965.dkr.ecr.us-east-1.amazonaws.com/$REPO_NAME:$IMAGE_TAG .
-          docker push 959209905965.dkr.ecr.us-east-1.amazonaws.com/$REPO_NAME:$IMAGE_TAG
+          docker build --build-arg=REACT_APP_MOVIE_API_URL=http://localhost:5000 --tag 446745522669.dkr.ecr.us-east-1.amazonaws.com/$REPO_NAME:$IMAGE_TAG .
+          docker push 446745522669.dkr.ecr.us-east-1.amazonaws.com/$REPO_NAME:$IMAGE_TAG
       - name: Update Kubeconfig
         run: aws eks update-kubeconfig --name udacity-project5 --region us-east-1
 
@@ -92,5 +92,5 @@ jobs:
           REPO_NAME: backend
         run: |
           aws eks update-kubeconfig --name udacity-project5 --region us-east-1
-          kustomize edit set image backend=959209905965.dkr.ecr.us-east-1.amazonaws.com/$REPO_NAME:$IMAGE_TAG
+          kustomize edit set image backend=446745522669.dkr.ecr.us-east-1.amazonaws.com/$REPO_NAME:$IMAGE_TAG
           kustomize build | kubectl apply -f -
