@@ -1,105 +1,67 @@
-# Workflow name
-name: backend-ci
+name: Backend CI Workflow
 
-# Triggers for the workflow
 on:
-  # Manual trigger using the workflow_dispatch event
   workflow_dispatch:
-
-  # Automatic trigger on pull_request events to the main branch
   pull_request:
     branches:
-    - main
+      - main
 
-# Jobs defined in the workflow
 jobs:
-  lint-job:
+  Linting:
     runs-on: ubuntu-latest
+    environment: Devlopmnet Environment
+
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
-
-    - name: Set up Python
-      uses: actions/setup-python@v4 # Use the latest version
-      with:
-        python-version: '3.x' # Specify the desired Python version
-
-    - name: Install pipenv
-      run: |
-        python -m pip install --upgrade pip
-        pip install pipenv  # Install pipenv
-
-    - name: Install dependencies
-      run: |
-        cd starter/backend  # Change to the specific directory
-        pipenv install # Adjust based on your project setup
-
-    - name: Install flake8
-      run: |
-        cd starter/backend  # Change to the specific directory
-        pipenv install flake8  # Install flake8 using pipenv
-
-    - name: Run the pipenv run lint command
-      run: |
-        cd starter/backend  # Change to the specific directory
-        pipenv run lint  # LINT JOB
-  test-job:
-    runs-on: ubuntu-latest
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
-
-    - name: Set up Python
-      uses: actions/setup-python@v4 # Use the latest version
-      with:
-        python-version: '3.x' # Specify the desired Python version
-
-    - name: Install pipenv
-      run: |
-        python -m pip install --upgrade pip
-        pip install pipenv  # Install pipenv
-
-    - name: Install dependencies
-      run: |
-        cd starter/backend  # Change to the specific directory
-        pipenv install # Adjust based on your project setup
-
-    - name: Install flake8
-      run: |
-        cd starter/backend  # Change to the specific directory
-        pipenv install flake8  # Install flake8 using pipenv
-
-    - name: Run the pipenv run test command
-      run: |
-        cd starter/backend  # Change to the specific directory
-        pipenv run test  # Test JOB
-
-  build-job:
-    name: build
-    needs: [lint-job, test-job]
-    runs-on: ubuntu-latest
-    steps:
-    - name: Checkout code
+    - name: Checkout the Repository
       uses: actions/checkout@v4
 
-    - name: Set up AWS CLI
-      uses: aws-actions/configure-aws-credentials@v2
+    - name: Setup Python
+      uses: actions/setup-python@v5
       with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
-        aws-region: us-east-1 # Specify your AWS region
+        python-version: "3.10"
 
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v2
+    - name: Install Dependencies
+      working-directory: starter/backend 
+      run:  |
+        python -m pip install --upgrade pip
+        pip install pipenv
+        pip install flake8
 
-    - name: Log in to Amazon ECR
-      id: login-amz-ecr
-      uses: aws-actions/amazon-ecr-login@v1
+    - name: Change Directory and run Lint
+      run: cd starter/backend && pipenv run lint
 
-    - name: Build, tag, push image
-      env:
-        ECR_REGISTRY: ${{ steps.login-amz-ecr.outputs.registry }}
-        ECR_REPOSITORY: "movie-server"
-        IMAGE_TAG: latest
-      run: "cd starter/backend  # Change to the specific directory\ndocker build -t mp-backend:latest .  # image name\ndocker tag mp-backend:latest $ECR_REGISTRY/$ECR_REPOSITORY:latest\ndocker push $ECR_REGISTRY/$ECR_REPOSITORY:latest \necho \"image=$ECR_REGISTRY/$ECR_REPOSITORY:latest\" >> $GITHUB_OUTPUT\n"
+  Test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout the Repository
+      uses: actions/checkout@v4
+
+    - name: Setup Python 3
+      uses:  actions/setup-python@v4
+      with:
+        python-version: "3.10"
+
+    - name: Install Dependencies
+      working-directory: starter/backend 
+      run:  |
+        python -m pip install --upgrade pip
+        pip install pipenv
+        pip install flake8
+
+    - name: Test
+      run: cd starter/backend && pipenv install pytest && pipenv run test
+
+      
+  Build:
+    needs: [Linting, Test]
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout the Repository
+      uses: actions/checkout@v4
+
+    - name: Build Docker Image
+      run: |
+        cd starter/backend
+        docker build --tag mp-backend:latest .

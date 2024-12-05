@@ -1,17 +1,19 @@
-name: frontend-cd
+name: Frontend CD Workflow
 
 on:
   workflow_dispatch:
   push:
     branches:
-    - main
+      - main
+
 jobs:
-  lint:
+  Linting:
     runs-on: ubuntu-latest
+    environment: Devlopmnet Environment
 
     steps:
-    - name: Check the Repository
-      uses: actions/checkout@v3
+    - name: Checkout the Repository
+      uses: actions/checkout@v4
 
     - name: Use Node.js 18
       uses: actions/setup-node@v3
@@ -24,68 +26,82 @@ jobs:
       working-directory: starter/frontend
       run: npm ci
 
-    - name: Checkout Run Lint
+    - name: Change Directory and run Lint
       run: cd starter/frontend && npm run lint
-  test:
+
+  Test:
     runs-on: ubuntu-latest
+
     steps:
-    - name: Check the Repository
-      uses: actions/checkout@v3
+    - name: Checkout the Repository
+      uses: actions/checkout@v4
+
     - name: Use Node.js 18
       uses: actions/setup-node@v3
       with:
         node-version: 18
         cache: 'npm'
         cache-dependency-path: starter/frontend/package-lock.json
+        
     - name: Install Dependencies
       working-directory: starter/frontend
       run: npm ci
+  
     - name: Test
       run: cd starter/frontend && npm run test
-  build:
+
+
+
+  Build:
+    needs: [Linting, Test]
     runs-on: ubuntu-latest
-    needs: [lint, test]
+    
     steps:
-    - name: Check the Repository
+    - name: Checkout the Repository
       uses: actions/checkout@v4
+    
     - name: Use Node.js 18
       uses: actions/setup-node@v3
       with:
         node-version: 18
         cache: 'npm'
         cache-dependency-path: starter/frontend/package-lock.json
+
     - name: Configure AWS Credentials
-      uses: aws-actions/configure-aws-credentials@v2
+      uses: aws-actions/configure-aws-credentials@v4
       with:
         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-session-token: ${{secrets.AWS_SESSION_TOKEN}}
         aws-region: us-east-1
-    - name: Login to Amazon
+  
+
+    - name: Login to Amazon 
       id: login-ecr
-      uses: aws-actions/amazon-ecr-login@v1
-    - name: Build and Push Docker Image
+      uses: aws-actions/amazon-ecr-login@v2
+
+
+
+    - name: Build, tag, and push docker image to Amazon ECR
       working-directory: starter/frontend
       env:
-        IMAGE_TAG: "lastest"
-        REPO_NAME: movie
-        AWS_ACCOUNT_ID: ${{secrets.AWS_ACCOUNT_ID}}
-        REACT_APP_MOVIE_API_URL: ${{ vars.REACT_APP_MOVIE_API_URL}}
+        IMAGE_TAG: latest
+        REPO_NAME: frontend
       run: |
-        docker build --build-arg=REACT_APP_MOVIE_API_URL=$REACT_APP_MOVIE_API_URL --tag $AWS_ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/$REPO_NAME:$IMAGE_TAG .
-        docker push $AWS_ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/$REPO_NAME:$IMAGE_TAG
-        echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
+        docker build --build-arg=REACT_APP_MOVIE_API_URL=http://localhost:5000 --tag 959209905965.dkr.ecr.us-east-1.amazonaws.com/$REPO_NAME:$IMAGE_TAG .
+        docker push 959209905965.dkr.ecr.us-east-1.amazonaws.com/$REPO_NAME:$IMAGE_TAG
+    
+
     - name: Configure Kubeconfig
-      run: aws eks update-kubeconfig --name=movie
-    - name: Deploy Docker Image to Amazon EKS
+      run:
+       aws eks update-kubeconfig --name udacity-project5 --region us-east-1
+
+
+    - name: Deploy Image in Amazon ECR to Amazon EKS
       working-directory: starter/frontend/k8s
       env:
-        IMAGE_TAG: lastest
-        REPO_NAME: movie
-        AWS_ACCOUNT_ID: ${{secrets.AWS_ACCOUNT_ID}}
+        IMAGE_TAG: latest
+        REPO_NAME: frontend
       run: |
-        kustomize edit set image frontend=$AWS_ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/$REPO_NAME:$IMAGE_TAG
-        kustomize build | kubectl apply -f -
-
-
-
+          kustomize edit set image frontend=959209905965.dkr.ecr.us-east-1.amazonaws.com/$REPO_NAME:$IMAGE_TAG
+          kustomize build | kubectl apply -f -
